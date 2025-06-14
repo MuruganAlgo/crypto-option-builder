@@ -2,82 +2,168 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Element References ---
     const navHomeButton = document.getElementById('nav-home');
     const navBuilderButton = document.getElementById('nav-builder');
+    const navAdvancedStrategiesButton = document.getElementById('nav-advanced-strategies'); // New
     const homeSection = document.getElementById('home-section');
     const builderSection = document.getElementById('builder-section');
+    const advancedStrategiesSection = document.getElementById('advanced-strategies-section'); // New
 
     const strategyLegsDiv = document.getElementById('strategy-legs');
     const addLegButton = document.getElementById('add-leg');
     const calculateButton = document.getElementById('calculate-strategy');
     const clearLegsButton = document.getElementById('clear-legs');
     const underlyingPriceInput = document.getElementById('underlying-price');
-    const dteInput = document.getElementById('dte'); // New DTE input
+    const dteInput = document.getElementById('dte');
     const maxProfitSpan = document.getElementById('max-profit');
     const maxLossSpan = document.getElementById('max-loss');
     const breakevenSpan = document.getElementById('breakeven-points');
     const riskRewardSpan = document.getElementById('risk-reward');
     const ctx = document.getElementById('payoffChart').getContext('2d');
     const strategyListElement = document.getElementById('strategy-list');
+    const advancedStrategyGrid = document.getElementById('advanced-strategy-grid'); // New
 
-    // New slider elements
     const priceSlider = document.getElementById('price-slider');
     const sliderPriceDisplay = document.getElementById('slider-price-display');
     const sliderCurrentPLDisplay = document.getElementById('slider-current-pl');
 
     let chart;
-    let legCounter = -1; // Start at -1 so first added leg is leg_0
+    let legCounter = -1;
     let currentLegsData = []; // Store parsed leg data for slider calculations
 
     // --- Configuration Constants ---
-    const STRIKE_OFFSET_FACTOR = 0.05; // 5% offset for OTM/ITM strikes
+    const STRIKE_OFFSET_FACTOR_SIMPLE = 0.05; // 5% offset for simple OTM/ITM strikes
+    const STRIKE_INTERVAL_PERCENT = 0.02; // 2% of underlying price for spread widths
+    const PREMIUM_PERCENT_ATM = 0.03; // Base premium for ATM options
+    const PREMIUM_PERCENT_OTM_ITM = 0.01; // Base premium for OTM/ITM options (adjusted for spread pricing)
     const ASSUMED_IMPLIED_VOLATILITY = 1.0; // 100% annualized volatility for SD calculation
 
-    // --- Pre-built Strategy Definitions (same as before) ---
+    // --- Pre-built Strategy Definitions ---
+    // Note: For advanced strategies, strikeOffsetFactor is multiplied by (underlyingPrice * STRIKE_INTERVAL_PERCENT)
+    // PremiumFactor is multiplied by (underlyingPrice * PREMIUM_PERCENT_OTM_ITM)
     const PREBUILT_STRATEGIES = {
-        "Long Call": [
-            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
-        ],
-        "Short Call": [
-            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
-        ],
-        "Long Put": [
-            { type: 'option', optionType: 'put', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
-        ],
-        "Short Put": [
-            { type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
-        ],
-        "Long Straddle": [
-            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 },
-            { type: 'option', optionType: 'put', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
-        ],
-        "Short Straddle": [
-            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 },
-            { type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
-        ],
-        "Long Strangle": [
-            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'OTM_CALL', premiumFactor: 0.02, quantity: 1 },
-            { type: 'option', optionType: 'put', action: 'buy', strikeRelative: 'OTM_PUT', premiumFactor: 0.02, quantity: 1 }
-        ],
-        "Short Strangle": [
-            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'OTM_CALL', premiumFactor: 0.02, quantity: 1 },
-            { type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'OTM_PUT', premiumFactor: 0.02, quantity: 1 }
-        ],
+        // Directional Strategies (sidebar)
+        "Long Call": [{ type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ATM', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 }],
+        "Short Call": [{ type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'ATM', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 }],
+        "Long Put": [{ type: 'option', optionType: 'put', action: 'buy', strikeRelative: 'ATM', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 }],
+        "Short Put": [{ type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'ATM', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 }],
         "Bull Call Spread": [
-            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ITM_CALL', premiumFactor: 0.04, quantity: 1 },
-            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'OTM_CALL', premiumFactor: 0.01, quantity: 1 }
+            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ITM_CALL', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'OTM_CALL', premiumFactor: PREMIUM_PERCENT_OTM_ITM, quantity: 1 }
         ],
         "Bear Call Spread": [
-            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'ITM_CALL', premiumFactor: 0.04, quantity: 1 },
-            { type: 'option', optionType: 'buy', strikeRelative: 'OTM_CALL', premiumFactor: 0.01, quantity: 1 }
+            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'ITM_CALL', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'OTM_CALL', premiumFactor: PREMIUM_PERCENT_OTM_ITM, quantity: 1 }
         ],
-        "Synthetic Long": [
-            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 },
-            { type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 },
-            { type: 'future', action: 'buy', entryPriceRelative: 'ATM', quantity: 1 }
+        "Bull Put Spread": [
+            { type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'ITM_PUT', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'buy', strikeRelative: 'OTM_PUT', premiumFactor: PREMIUM_PERCENT_OTM_ITM, quantity: 1 }
+        ],
+        "Bear Put Spread": [
+            { type: 'option', optionType: 'put', action: 'buy', strikeRelative: 'ITM_PUT', premiumFactor: PREMIUM_PERCENT_ATM, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'sell', strikeRelative: 'OTM_PUT', premiumFactor: PREMIUM_PERCENT_OTM_ITM, quantity: 1 }
         ],
         "Covered Call": [
             { type: 'future', action: 'buy', entryPriceRelative: 'ATM', quantity: 1 },
-            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'OTM_CALL', premiumFactor: 0.02, quantity: 1 }
+            { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'OTM_CALL', premiumFactor: PREMIUM_PERCENT_OTM_ITM, quantity: 1 }
         ]
+    };
+
+    const ADVANCED_STRATEGIES = {
+        // Non-Directional Strategies (new page)
+        "Long Straddle": [
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 }, // ATM Call
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 }  // ATM Put
+        ],
+        "Short Straddle": [
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 }
+        ],
+        "Long Strangle": [
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 1, premiumFactor: 0.8, quantity: 1 }, // OTM Call
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -1, premiumFactor: 0.8, quantity: 1 } // OTM Put
+        ],
+        "Short Strangle": [
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 1, premiumFactor: 0.8, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -1, premiumFactor: 0.8, quantity: 1 }
+        ],
+        "Jade Lizard": [
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 2, premiumFactor: 0.5, quantity: 1 }, // Short OTM Call
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 3, premiumFactor: 0.2, quantity: 1 },  // Long Far OTM Call
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -1, premiumFactor: 0.8, quantity: 1 } // Short OTM Put
+        ],
+        "Reverse Jade Lizard": [
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 2, premiumFactor: 0.5, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 3, premiumFactor: 0.2, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -1, premiumFactor: 0.8, quantity: 1 }
+        ],
+        "Call Ratio Spread (1:2)": [
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: -1, premiumFactor: 1.2, quantity: 1 }, // ITM Call
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 1, premiumFactor: 0.4, quantity: 2 }   // OTM Calls (2x quantity)
+        ],
+        "Put Ratio Spread (1:2)": [
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: 1, premiumFactor: 1.2, quantity: 1 }, // ITM Put
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -1, premiumFactor: 0.4, quantity: 2 }   // OTM Puts (2x quantity)
+        ],
+        "Long Iron Fly": [
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -2, premiumFactor: 0.2, quantity: 1 },  // Far OTM Put
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 },  // ATM Put
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 },  // ATM Call
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 2, premiumFactor: 0.2, quantity: 1 }   // Far OTM Call
+        ],
+        "Short Iron Fly": [
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -2, premiumFactor: 0.2, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 2, premiumFactor: 0.2, quantity: 1 }
+        ],
+        "Long Iron Condor": [
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -3, premiumFactor: 0.1, quantity: 1 }, // Far OTM Put (wing)
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -1, premiumFactor: 0.5, quantity: 1 }, // Near OTM Put (body)
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 1, premiumFactor: 0.5, quantity: 1 },  // Near OTM Call (body)
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 3, premiumFactor: 0.1, quantity: 1 }   // Far OTM Call (wing)
+        ],
+        "Short Iron Condor": [
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -3, premiumFactor: 0.1, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -1, premiumFactor: 0.5, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 1, premiumFactor: 0.5, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 3, premiumFactor: 0.1, quantity: 1 }
+        ],
+        // Simplification for complex multi-leg/multi-DTE strategies:
+        // For 'Double Fly' and 'Double Condor', these are often two shifted iron flies/condors.
+        // Implementing them accurately requires careful strike selection and potentially 8 legs.
+        // For simplicity, I will implement a "simplified" version that shows the general shape,
+        // or note their complexity. Let's provide a simplified 6-leg double iron condor for now.
+        // Batman is also very custom. I will use a very common interpretation of a long strangle
+        // combined with a wider short strangle for volatility expansion.
+        "Batman Strategy (Long Vol)": [ // Simplified: Long Strangle + Wider Short Strangle
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 1, premiumFactor: 0.8, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -1, premiumFactor: 0.8, quantity: 1 },
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 3, premiumFactor: 0.4, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: -3, premiumFactor: 0.4, quantity: 1 }
+        ],
+        "Call Calendar (Same DTE Sim)": [ // Real calendar needs different DTE
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 }, // Long Term ATM
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 0.8, quantity: 1 } // Short Term ATM
+        ],
+        "Put Calendar (Same DTE Sim)": [ // Real calendar needs different DTE
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 1 },
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 0.8, quantity: 1 }
+        ],
+        "Diagonal Calendar (Same DTE Sim)": [ // Real diagonal needs different DTE and strike
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: -1, premiumFactor: 1.0, quantity: 1 }, // ITM Call, Long DTE
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 1, premiumFactor: 0.8, quantity: 1 } // OTM Call, Short DTE
+        ],
+        "Call Butterfly": [
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: -2, premiumFactor: 0.5, quantity: 1 }, // ITM wing
+            { type: 'option', optionType: 'call', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 2 },  // ATM body (2x)
+            { type: 'option', optionType: 'call', action: 'buy', strikeOffsetFactor: 2, premiumFactor: 0.5, quantity: 1 }   // OTM wing
+        ],
+        "Put Butterfly": [
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: 2, premiumFactor: 0.5, quantity: 1 },  // ITM wing
+            { type: 'option', optionType: 'put', action: 'sell', strikeOffsetFactor: 0, premiumFactor: 1.0, quantity: 2 }, // ATM body (2x)
+            { type: 'option', optionType: 'put', action: 'buy', strikeOffsetFactor: -2, premiumFactor: 0.5, quantity: 1 }  // OTM wing
+        ]
+        // Double Fly and Double Condor are significantly more complex (8+ legs, multiple centers)
+        // and would clutter the UI/logic without very specific needs. Omitting for now.
     };
 
     // --- Section Navigation Logic ---
@@ -97,13 +183,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navHomeButton.addEventListener('click', () => showSection('home-section'));
     navBuilderButton.addEventListener('click', () => showSection('builder-section'));
+    navAdvancedStrategiesButton.addEventListener('click', () => showSection('advanced-strategies-section')); // New listener
 
     // --- Helper Functions for Strategy Calculation ---
     function calculateLegPayoff(leg, currentUnderlyingPrice, underlyingPriceForStrikes) {
         let legPayoff = 0;
         if (leg.type === 'option') {
-            const strikePrice = leg.strikeRelative ? getAbsoluteStrike(leg.strikeRelative, underlyingPriceForStrikes, STRIKE_OFFSET_FACTOR) : leg.strike;
-            const premium = leg.premiumFactor ? getAbsolutePremium(leg.premiumFactor, underlyingPriceForStrikes) : leg.premium;
+            // Use the already calculated absolute strike and premium from currentLegsData
+            const strikePrice = leg.strike;
+            const premium = leg.premium;
 
             if (leg.optionType === 'call') {
                 if (leg.action === 'buy') {
@@ -119,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else { // future
-            const entryPrice = leg.entryPriceRelative ? getAbsoluteEntryPrice(leg.entryPriceRelative, underlyingPriceForStrikes) : leg.entryPrice;
+            const entryPrice = leg.entryPrice; // Use already calculated absolute entry price
             if (leg.action === 'buy') {
                 legPayoff = (currentUnderlyingPrice - entryPrice);
             } else { // sell
@@ -129,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return legPayoff * leg.quantity;
     }
 
+    // This is now only used by old PREBUILT_STRATEGIES that use strikeRelative
     function getAbsoluteStrike(strikeRelative, underlyingPrice, offsetFactor) {
         const offset = underlyingPrice * offsetFactor;
         switch (strikeRelative) {
@@ -141,10 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // This is now only used by old PREBUILT_STRATEGIES that use premiumFactor (single value)
     function getAbsolutePremium(premiumFactor, underlyingPrice) {
         return Math.round(underlyingPrice * premiumFactor);
     }
-
+    
+    // This is now only used by old PREBUILT_STRATEGIES that use entryPriceRelative
     function getAbsoluteEntryPrice(entryPriceRelative, underlyingPrice) {
         return Math.round(underlyingPrice / 100) * 100;
     }
@@ -176,15 +267,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="radio" name="optionType_${legCounter}" value="put" ${defaultOptionType === 'put' ? 'checked' : ''}> Put
                     <br>
                     <label for="strike-price_${legCounter}">Strike Price:</label>
-                    <input type="number" id="strike-price_${legCounter}" value="${initialData?.strike ?? ''}" step="100">
+                    <input type="number" id="strike-price_${legCounter}" value="${initialData?.strike ?? ''}" step="100" ${defaultType === 'option' ? 'required' : ''}>
                     <br>
                     <label for="premium_${legCounter}">Premium (per option):</label>
-                    <input type="number" id="premium_${legCounter}" value="${initialData?.premium ?? ''}" step="1">
+                    <input type="number" id="premium_${legCounter}" value="${initialData?.premium ?? ''}" step="1" ${defaultType === 'option' ? 'required' : ''}>
                 </div>
 
                 <div class="future-inputs" style="display: none;">
                     <label for="entry-price_${legCounter}">Entry Price:</label>
-                    <input type="number" id="entry-price_${legCounter}" value="${initialData?.entryPrice ?? ''}" step="100">
+                    <input type="number" id="entry-price_${legCounter}" value="${initialData?.entryPrice ?? ''}" step="100" ${defaultType === 'future' ? 'required' : ''}>
                 </div>
 
                 <label>Action:</label>
@@ -218,22 +309,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selectedType = e.target.value;
                 const optionInputs = legDiv.querySelector('.option-inputs');
                 const futureInputs = legDiv.querySelector('.future-inputs');
+                const strikeInput = legDiv.querySelector(`#strike-price_${index}`);
+                const premiumInput = legDiv.querySelector(`#premium_${index}`);
+                const entryInput = legDiv.querySelector(`#entry-price_${index}`);
+
 
                 if (selectedType === 'option') {
                     optionInputs.style.display = 'block';
                     futureInputs.style.display = 'none';
-                    legDiv.querySelector(`#strike-price_${index}`).required = true;
-                    legDiv.querySelector(`#premium_${index}`).required = true;
-                    legDiv.querySelector(`#entry-price_${index}`).required = false;
-                    legDiv.querySelector(`#entry-price_${index}`).value = ''; // Clear future input values
+                    strikeInput.required = true;
+                    premiumInput.required = true;
+                    entryInput.required = false;
+                    entryInput.value = '';
                 } else { // future
                     optionInputs.style.display = 'none';
                     futureInputs.style.display = 'block';
-                    legDiv.querySelector(`#strike-price_${index}`).required = false;
-                    legDiv.querySelector(`#premium_${index}`).required = false;
-                    legDiv.querySelector(`#strike-price_${index}`).value = ''; // Clear option values
-                    legDiv.querySelector(`#premium_${index}`).value = '';
-                    legDiv.querySelector(`#entry-price_${index}`).required = true;
+                    strikeInput.required = false;
+                    premiumInput.required = false;
+                    strikeInput.value = '';
+                    premiumInput.value = '';
+                    entryInput.required = true;
                 }
             });
         });
@@ -286,13 +381,38 @@ document.addEventListener('DOMContentLoaded', () => {
         addStrategyLeg(); // Always ensure at least one empty leg is present
     }
 
-    // --- Functions for Pre-built Strategies ---
-    function calculatePayoffForStrategy(legsConfig, minPrice, maxPrice, priceIncrement, underlyingPriceForStrikes) {
+    // --- Functions for Pre-built Strategies (Directional Sidebar) ---
+    function calculatePayoffForStrategyPreview(legsConfig, minPrice, maxPrice, priceIncrement, underlyingPriceForStrikes) {
         const prices = [];
         const payoffs = [];
+        const baseStrikeInterval = underlyingPriceForStrikes * STRIKE_INTERVAL_PERCENT; // Base for new strike system
+        const basePremiumValue = underlyingPriceForStrikes * PREMIUM_PERCENT_OTM_ITM; // Base for new premium system
+
+        const resolvedLegs = legsConfig.map(leg => {
+            const resolvedLeg = { ...leg };
+            if (leg.type === 'option') {
+                if (typeof leg.strikeOffsetFactor !== 'undefined') {
+                    resolvedLeg.strike = Math.round((underlyingPriceForStrikes + (baseStrikeInterval * leg.strikeOffsetFactor)) / 100) * 100;
+                } else if (typeof leg.strikeRelative !== 'undefined') {
+                    resolvedLeg.strike = getAbsoluteStrike(leg.strikeRelative, underlyingPriceForStrikes, STRIKE_OFFSET_FACTOR_SIMPLE);
+                } else {
+                    resolvedLeg.strike = Math.round(underlyingPriceForStrikes / 100) * 100; // Default ATM
+                }
+                if (typeof leg.premiumFactor !== 'undefined') {
+                    resolvedLeg.premium = Math.round(basePremiumValue * leg.premiumFactor);
+                } else {
+                    resolvedLeg.premium = Math.round(underlyingPriceForStrikes * PREMIUM_PERCENT_ATM); // Default
+                }
+            } else if (leg.type === 'future') {
+                resolvedLeg.entryPrice = Math.round(underlyingPriceForStrikes / 100) * 100; // Default ATM
+            }
+            return resolvedLeg;
+        });
+
+
         for (let p = minPrice; p <= maxPrice; p += priceIncrement) {
             let totalPayoff = 0;
-            legsConfig.forEach(leg => {
+            resolvedLegs.forEach(leg => {
                 totalPayoff += calculateLegPayoff(leg, p, underlyingPriceForStrikes);
             });
             prices.push(p);
@@ -309,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const strategyName in PREBUILT_STRATEGIES) {
             const legsConfig = PREBUILT_STRATEGIES[strategyName];
-            const { prices, payoffs } = calculatePayoffForStrategy(
+            const { prices, payoffs } = calculatePayoffForStrategyPreview(
                 legsConfig, priceRangeMin, priceRangeMax, priceIncrement, underlyingPriceInitial
             );
 
@@ -362,16 +482,89 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             listItem.addEventListener('click', () => {
-                loadPrebuiltStrategy(strategyName);
+                loadStrategyToBuilder(strategyName, PREBUILT_STRATEGIES);
             });
         }
     }
 
-    function loadPrebuiltStrategy(strategyName) {
+    // --- Functions for Advanced Strategies (New Page) ---
+    function renderAdvancedStrategies() {
+        const underlyingPriceInitial = parseFloat(underlyingPriceInput.value) || 30000;
+        const priceRangeMin = underlyingPriceInitial * 0.8; // Wider range for non-directional
+        const priceRangeMax = underlyingPriceInitial * 1.2;
+        const priceIncrement = (priceRangeMax - priceRangeMin) / 50;
+
+        for (const strategyName in ADVANCED_STRATEGIES) {
+            const legsConfig = ADVANCED_STRATEGIES[strategyName];
+            const { prices, payoffs } = calculatePayoffForStrategyPreview(
+                legsConfig, priceRangeMin, priceRangeMax, priceIncrement, underlyingPriceInitial
+            );
+
+            const cardDiv = document.createElement('div');
+            cardDiv.classList.add('advanced-strategy-card');
+            cardDiv.dataset.strategy = strategyName;
+            cardDiv.innerHTML = `
+                <h4>${strategyName}</h4>
+                <div class="mini-chart-container">
+                    <canvas id="miniChart-Advanced-${strategyName.replace(/\s+/g, '-')}" width="250" height="120"></canvas>
+                </div>
+            `;
+            advancedStrategyGrid.appendChild(cardDiv);
+
+            const miniCtx = document.getElementById(`miniChart-Advanced-${strategyName.replace(/\s+/g, '-')}`).getContext('2d');
+            new Chart(miniCtx, {
+                type: 'line',
+                data: {
+                    labels: prices.map(p => p.toFixed(0)),
+                    datasets: [{
+                        label: 'P&L',
+                        data: payoffs,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: false,
+                        segment: {
+                            borderColor: ctx => {
+                                const value = ctx.p1.parsed.y;
+                                return value > 0 ? 'rgba(0, 128, 0, 1)' : 'rgba(255, 0, 0, 1)';
+                            }
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, beginAtZero: true }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    elements: {
+                        line: { tension: 0.4 }
+                    }
+                }
+            });
+
+            cardDiv.addEventListener('click', () => {
+                loadStrategyToBuilder(strategyName, ADVANCED_STRATEGIES);
+                showSection('builder-section'); // Switch to builder after loading
+            });
+        }
+    }
+
+
+    // Unified function to load strategies into the builder
+    function loadStrategyToBuilder(strategyName, strategySource) {
         clearAllLegs(); // Clear all existing legs and reset counter (this also adds one empty leg)
         const underlyingPrice = parseFloat(underlyingPriceInput.value) || 30000;
+        const baseStrikeInterval = underlyingPrice * STRIKE_INTERVAL_PERCENT;
+        const basePremiumValue = underlyingPrice * PREMIUM_PERCENT_OTM_ITM;
 
-        const strategyConfig = PREBUILT_STRATEGIES[strategyName];
+        const strategyConfig = strategySource[strategyName];
         if (!strategyConfig || strategyConfig.length === 0) {
             console.warn("Strategy not found or empty:", strategyName);
             return;
@@ -388,23 +581,30 @@ document.addEventListener('DOMContentLoaded', () => {
         strategyConfig.forEach(legConfig => {
             const newLegData = { ...legConfig };
             if (newLegData.type === 'option') {
-                newLegData.strike = getAbsoluteStrike(newLegData.strikeRelative, underlyingPrice, STRIKE_OFFSET_FACTOR);
-                newLegData.premium = getAbsolutePremium(newLegData.premiumFactor, underlyingPrice);
+                if (typeof newLegData.strikeOffsetFactor !== 'undefined') {
+                    newLegData.strike = Math.round((underlyingPrice + (baseStrikeInterval * newLegData.strikeOffsetFactor)) / 100) * 100;
+                } else if (typeof newLegData.strikeRelative !== 'undefined') { // Keep old for simple strategies
+                     newLegData.strike = getAbsoluteStrike(newLegData.strikeRelative, underlyingPrice, STRIKE_OFFSET_FACTOR_SIMPLE);
+                } else {
+                    newLegData.strike = Math.round(underlyingPrice / 100) * 100; // Default ATM
+                }
+
+                if (typeof newLegData.premiumFactor !== 'undefined') {
+                    newLegData.premium = Math.round(basePremiumValue * newLegData.premiumFactor);
+                } else {
+                    newLegData.premium = Math.round(underlyingPrice * PREMIUM_PERCENT_ATM); // Default
+                }
             } else if (newLegData.type === 'future') {
-                newLegData.entryPrice = getAbsoluteEntryPrice(newLegData.entryPriceRelative, underlyingPrice);
+                newLegData.entryPrice = Math.round(underlyingPrice / 100) * 100; // Assume future entry at current underlying
             }
             addStrategyLeg(newLegData);
         });
 
         setTimeout(() => {
             calculateButton.click();
-        }, 150); // Increased delay slightly more for robust rendering
+        }, 150);
     }
 
-    // --- Event Listeners for Main Builder Buttons ---
-    addLegButton.addEventListener('click', () => addStrategyLeg());
-    calculateButton.addEventListener('click', calculateCurrentStrategy);
-    clearLegsButton.addEventListener('click', clearAllLegs);
 
     // --- Price Slider Event Listener ---
     priceSlider.addEventListener('input', () => {
@@ -419,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLegsData.forEach(leg => {
             let legPayoff = 0;
             if (leg.type === 'option') {
+                // Use already resolved strike and premium from currentLegsData
                 if (leg.optionType === 'call') {
                     if (leg.action === 'buy') {
                         legPayoff = Math.max(0, price - leg.strike) - leg.premium;
@@ -548,7 +749,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (minPriceForRange < 0) minPriceForRange = 0;
 
-        // Ensure step is reasonable for the range to avoid too many labels
         const priceRange = maxPriceForRange - minPriceForRange;
         const priceIncrement = priceRange / 200; // Aim for 200 data points
 
@@ -792,5 +992,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial setup calls ---
     renderPrebuiltStrategies(); // Render the pre-built strategies sidebar on load
+    renderAdvancedStrategies(); // Render the new advanced strategies page on load
     showSection('home-section'); // By default, show the home section on page load
 });
