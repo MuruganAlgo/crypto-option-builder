@@ -18,14 +18,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = document.getElementById('payoffChart').getContext('2d');
     const strategyListElement = document.getElementById('strategy-list');
 
+    // New slider elements
+    const priceSlider = document.getElementById('price-slider');
+    const sliderPriceDisplay = document.getElementById('slider-price-display');
+    const sliderCurrentPLDisplay = document.getElementById('slider-current-pl');
+
     let chart;
     let legCounter = -1; // Start at -1 so first added leg is leg_0
+    let currentLegsData = []; // Store parsed leg data for slider calculations
 
     // --- Configuration Constants ---
     const STRIKE_OFFSET_FACTOR = 0.05; // 5% offset for OTM/ITM strikes
     const ASSUMED_IMPLIED_VOLATILITY = 1.0; // 100% annualized volatility for SD calculation
 
-    // --- Pre-built Strategy Definitions ---
+    // --- Pre-built Strategy Definitions (same as before) ---
     const PREBUILT_STRATEGIES = {
         "Long Call": [
             { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 }
@@ -61,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ],
         "Bear Call Spread": [
             { type: 'option', optionType: 'call', action: 'sell', strikeRelative: 'ITM_CALL', premiumFactor: 0.04, quantity: 1 },
-            { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'OTM_CALL', premiumFactor: 0.01, quantity: 1 }
+            { type: 'option', optionType: 'buy', strikeRelative: 'OTM_CALL', premiumFactor: 0.01, quantity: 1 }
         ],
         "Synthetic Long": [
             { type: 'option', optionType: 'call', action: 'buy', strikeRelative: 'ATM', premiumFactor: 0.03, quantity: 1 },
@@ -147,7 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Logic for Main Builder ---
 
     // Initial setup: Add one empty leg when builder section is first displayed
-    // (This will be called by `addStrategyLeg` during `loadPrebuiltStrategy` as well, so ensure `clearAllLegs` handles it)
     addStrategyLeg();
 
     function addStrategyLeg(initialData = null) {
@@ -219,11 +224,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     futureInputs.style.display = 'none';
                     legDiv.querySelector(`#strike-price_${index}`).required = true;
                     legDiv.querySelector(`#premium_${index}`).required = true;
-                    // Optional: Clear future input values when switching type to avoid carrying old data
-                    legDiv.querySelector(`#entry-price_${index}`).value = '';
+                    legDiv.querySelector(`#entry-price_${index}`).required = false;
+                    legDiv.querySelector(`#entry-price_${index}`).value = ''; // Clear future input values
                 } else { // future
                     optionInputs.style.display = 'none';
                     futureInputs.style.display = 'block';
+                    legDiv.querySelector(`#strike-price_${index}`).required = false;
+                    legDiv.querySelector(`#premium_${index}`).required = false;
                     legDiv.querySelector(`#strike-price_${index}`).value = ''; // Clear option values
                     legDiv.querySelector(`#premium_${index}`).value = '';
                     legDiv.querySelector(`#entry-price_${index}`).required = true;
@@ -274,6 +281,8 @@ document.addEventListener('DOMContentLoaded', () => {
         maxLossSpan.textContent = '-';
         breakevenSpan.textContent = '-';
         riskRewardSpan.textContent = '-';
+        sliderPriceDisplay.textContent = '0';
+        sliderCurrentPLDisplay.textContent = '-';
         addStrategyLeg(); // Always ensure at least one empty leg is present
     }
 
@@ -365,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const strategyConfig = PREBUILT_STRATEGIES[strategyName];
         if (!strategyConfig || strategyConfig.length === 0) {
             console.warn("Strategy not found or empty:", strategyName);
-            return; // clearAllLegs already added an empty leg.
+            return;
         }
 
         // Remove the single empty leg that clearAllLegs added,
@@ -397,11 +406,56 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateButton.addEventListener('click', calculateCurrentStrategy);
     clearLegsButton.addEventListener('click', clearAllLegs);
 
+    // --- Price Slider Event Listener ---
+    priceSlider.addEventListener('input', () => {
+        const sliderPrice = parseFloat(priceSlider.value);
+        updateLivePriceMarker(sliderPrice);
+    });
+
+    // Function to calculate and update P&L for the live price marker
+    function updateLivePriceMarker(price) {
+        sliderPriceDisplay.textContent = price.toFixed(2);
+        let totalPayoff = 0;
+        currentLegsData.forEach(leg => {
+            let legPayoff = 0;
+            if (leg.type === 'option') {
+                if (leg.optionType === 'call') {
+                    if (leg.action === 'buy') {
+                        legPayoff = Math.max(0, price - leg.strike) - leg.premium;
+                    } else { // sell
+                        legPayoff = Math.min(0, leg.strike - price) + leg.premium;
+                    }
+                } else { // put
+                    if (leg.action === 'buy') {
+                        legPayoff = Math.max(0, leg.strike - price) - leg.premium;
+                    } else { // sell
+                        legPayoff = Math.min(0, price - leg.strike) + leg.premium;
+                    }
+                }
+            } else { // future
+                if (leg.action === 'buy') {
+                    legPayoff = (price - leg.entryPrice);
+                } else { // sell
+                    legPayoff = (leg.entryPrice - price);
+                }
+            }
+            totalPayoff += legPayoff * leg.quantity;
+        });
+        sliderCurrentPLDisplay.textContent = totalPayoff.toFixed(2);
+
+        // Update the Chart.js annotation for the live price marker
+        if (chart && chart.options.plugins.annotation && chart.options.plugins.annotation.annotations.livePriceMarker) {
+            chart.options.plugins.annotation.annotations.livePriceMarker.xMin = price;
+            chart.options.plugins.annotation.annotations.livePriceMarker.xMax = price;
+            chart.update(); // Update the chart to redraw the annotation
+        }
+    }
+
 
     // --- Main Calculation Function ---
     function calculateCurrentStrategy() {
         const underlyingPrice = parseFloat(underlyingPriceInput.value);
-        const dte = parseFloat(dteInput.value); // Read DTE
+        const dte = parseFloat(dteInput.value);
         
         if (isNaN(underlyingPrice) || underlyingPrice <= 0) {
             alert("Please enter a valid positive underlying asset price.");
@@ -473,6 +527,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Store the parsed legs data globally for the slider to use
+        currentLegsData = legs;
+
         // Determine price range for the chart
         let minPriceForRange = underlyingPrice * 0.8;
         let maxPriceForRange = underlyingPrice * 1.2;
@@ -491,7 +548,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (minPriceForRange < 0) minPriceForRange = 0;
 
-        const priceIncrement = (maxPriceForRange - minPriceForRange) / 200;
+        // Ensure step is reasonable for the range to avoid too many labels
+        const priceRange = maxPriceForRange - minPriceForRange;
+        const priceIncrement = priceRange / 200; // Aim for 200 data points
+
         if (priceIncrement <= 0 || !isFinite(priceIncrement)) {
             console.error("Calculated price increment is invalid. Check price range logic.");
             alert("Could not calculate strategy payoff. Please check input values or add more legs.");
@@ -587,18 +647,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 1SD and 2SD Calculation and Annotations ---
         const expectedMove = underlyingPrice * ASSUMED_IMPLIED_VOLATILITY * Math.sqrt(dte / 365);
-        const sdAnnotations = [
-            // Current Price
-            { type: 'line', xMin: underlyingPrice, xMax: underlyingPrice, borderColor: 'rgba(0, 0, 255, 0.7)', borderWidth: 2, borderDash: [5, 5], label: { content: 'Current Price', enabled: true, position: 'start', backgroundColor: 'rgba(0, 0, 255, 0.7)', color: 'white' } },
+        const sdAnnotations = {
+            // Current Futures Price Line (fixed based on input)
+            currentPriceLine: {
+                type: 'line',
+                xMin: underlyingPrice, xMax: underlyingPrice,
+                borderColor: 'rgba(0, 0, 255, 0.9)', // More prominent blue
+                borderWidth: 3, // Thicker line
+                borderDash: [6, 6], // Dotted line
+                label: {
+                    content: `Current Futures Price: ${underlyingPrice.toFixed(2)}`,
+                    enabled: true,
+                    position: 'end', // Position label at the end (top) of the line
+                    backgroundColor: 'rgba(0, 0, 255, 0.9)',
+                    color: 'white',
+                    font: { size: 12 },
+                    yAdjust: -10 // Adjust label vertically
+                }
+            },
             // -1 SD
-            { type: 'line', xMin: underlyingPrice - expectedMove, xMax: underlyingPrice - expectedMove, borderColor: 'rgba(255, 99, 132, 0.7)', borderWidth: 2, borderDash: [6, 4], label: { content: '-1SD', enabled: true, position: 'end', backgroundColor: 'rgba(255, 99, 132, 0.7)', color: 'white' } },
+            minus1SD: {
+                type: 'line', xMin: underlyingPrice - expectedMove, xMax: underlyingPrice - expectedMove,
+                borderColor: 'rgba(255, 99, 132, 0.7)', borderWidth: 2, borderDash: [6, 4],
+                label: { content: '-1SD', enabled: true, position: 'end', backgroundColor: 'rgba(255, 99, 132, 0.7)', color: 'white', font: { size: 10 } }
+            },
             // +1 SD
-            { type: 'line', xMin: underlyingPrice + expectedMove, xMax: underlyingPrice + expectedMove, borderColor: 'rgba(255, 99, 132, 0.7)', borderWidth: 2, borderDash: [6, 4], label: { content: '+1SD', enabled: true, position: 'start', backgroundColor: 'rgba(255, 99, 132, 0.7)', color: 'white' } },
+            plus1SD: {
+                type: 'line', xMin: underlyingPrice + expectedMove, xMax: underlyingPrice + expectedMove,
+                borderColor: 'rgba(255, 99, 132, 0.7)', borderWidth: 2, borderDash: [6, 4],
+                label: { content: '+1SD', enabled: true, position: 'start', backgroundColor: 'rgba(255, 99, 132, 0.7)', color: 'white', font: { size: 10 } }
+            },
             // -2 SD
-            { type: 'line', xMin: underlyingPrice - (2 * expectedMove), xMax: underlyingPrice - (2 * expectedMove), borderColor: 'rgba(255, 159, 64, 0.7)', borderWidth: 2, borderDash: [8, 2], label: { content: '-2SD', enabled: true, position: 'end', backgroundColor: 'rgba(255, 159, 64, 0.7)', color: 'white' } },
+            minus2SD: {
+                type: 'line', xMin: underlyingPrice - (2 * expectedMove), xMax: underlyingPrice - (2 * expectedMove),
+                borderColor: 'rgba(255, 159, 64, 0.7)', borderWidth: 2, borderDash: [8, 2],
+                label: { content: '-2SD', enabled: true, position: 'end', backgroundColor: 'rgba(255, 159, 64, 0.7)', color: 'white', font: { size: 10 } }
+            },
             // +2 SD
-            { type: 'line', xMin: underlyingPrice + (2 * expectedMove), xMax: underlyingPrice + (2 * expectedMove), borderColor: 'rgba(255, 159, 64, 0.7)', borderWidth: 2, borderDash: [8, 2], label: { content: '+2SD', enabled: true, position: 'start', backgroundColor: 'rgba(255, 159, 64, 0.7)', color: 'white' } }
-        ];
+            plus2SD: {
+                type: 'line', xMin: underlyingPrice + (2 * expectedMove), xMax: underlyingPrice + (2 * expectedMove),
+                borderColor: 'rgba(255, 159, 64, 0.7)', borderWidth: 2, borderDash: [8, 2],
+                label: { content: '+2SD', enabled: true, position: 'start', backgroundColor: 'rgba(255, 159, 64, 0.7)', color: 'white', font: { size: 10 } }
+            },
+            // Live Price Marker (will be updated by slider)
+            livePriceMarker: {
+                type: 'line',
+                xMin: underlyingPrice, // Initial position same as current price
+                xMax: underlyingPrice,
+                borderColor: 'rgba(0, 128, 0, 1.0)', // Green for live marker
+                borderWidth: 3,
+                borderDash: [2, 2], // Denser dash for distinctness
+                label: {
+                    content: 'Live Price',
+                    enabled: true,
+                    position: 'end',
+                    backgroundColor: 'rgba(0, 128, 0, 1.0)',
+                    color: 'white',
+                    font: { size: 12 },
+                    yAdjust: -30 // Adjust label vertically, above the current price label
+                }
+            }
+        };
 
 
         // Update Chart
@@ -635,12 +744,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 maintainAspectRatio: false,
                 scales: {
                     x: {
-                        type: 'category',
+                        type: 'linear', // Changed to linear scale for smooth slider interaction
                         title: {
                             display: true,
                             text: 'Underlying Asset Price at Expiration'
                         },
+                        min: minPriceForRange, // Set explicit min/max
+                        max: maxPriceForRange,
                         ticks: {
+                            callback: function(value) {
+                                return value.toFixed(0); // Display price without decimals for clarity
+                            },
                             autoSkip: true,
                             maxTicksLimit: 20
                         }
@@ -667,11 +781,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        // --- Initialize Price Slider ---
+        priceSlider.min = minPriceForRange.toFixed(0);
+        priceSlider.max = maxPriceForRange.toFixed(0);
+        priceSlider.step = (priceRange / 100).toFixed(0); // A step of roughly 1% of the range
+        priceSlider.value = underlyingPrice.toFixed(0); // Set initial value
+        updateLivePriceMarker(underlyingPrice); // Update display for initial position
     }
 
     // --- Initial setup calls ---
     renderPrebuiltStrategies(); // Render the pre-built strategies sidebar on load
-    // The initial addStrategyLeg() is called above, ensuring one empty leg.
-    // By default, show the home section on page load
-    showSection('home-section');
+    showSection('home-section'); // By default, show the home section on page load
 });
