@@ -11,38 +11,103 @@ document.addEventListener('DOMContentLoaded', () => {
     let chart;
     let legCounter = 0; // To keep track of unique IDs for new legs
 
-    // Function to add a new option leg input block
-    function addOptionLeg() {
+    // Initial setup for the first leg (Leg 0)
+    setupLegEventListeners(document.getElementById('leg_0'), 0);
+
+    // Function to add a new strategy leg input block (Option or Future)
+    function addStrategyLeg() {
         legCounter++;
         const newLegHtml = `
             <div class="option-leg" id="leg_${legCounter}">
                 <h3>Leg ${legCounter + 1} <button class="remove-leg">Remove</button></h3>
-                <label>Option Type:</label>
-                <input type="radio" name="optionType_${legCounter}" value="call" checked> Call
-                <input type="radio" name="optionType_${legCounter}" value="put"> Put
+                <label>Leg Type:</label>
+                <input type="radio" name="legType_${legCounter}" value="option" checked> Option
+                <input type="radio" name="legType_${legCounter}" value="future"> Future
                 <br>
+
+                <div class="option-inputs">
+                    <label>Option Type:</label>
+                    <input type="radio" name="optionType_${legCounter}" value="call" checked> Call
+                    <input type="radio" name="optionType_${legCounter}" value="put"> Put
+                    <br>
+                    <label for="strike-price_${legCounter}">Strike Price:</label>
+                    <input type="number" id="strike-price_${legCounter}" value="30000" step="100">
+                    <br>
+                    <label for="premium_${legCounter}">Premium (per option):</label>
+                    <input type="number" id="premium_${legCounter}" value="1000" step="1">
+                </div>
+
+                <div class="future-inputs" style="display: none;">
+                    <label for="entry-price_${legCounter}">Entry Price:</label>
+                    <input type="number" id="entry-price_${legCounter}" value="30000" step="100">
+                </div>
+
                 <label>Action:</label>
                 <input type="radio" name="action_${legCounter}" value="buy" checked> Buy
                 <input type="radio" name="action_${legCounter}" value="sell"> Sell
                 <br>
-                <label for="strike-price_${legCounter}">Strike Price:</label>
-                <input type="number" id="strike-price_${legCounter}" value="30000" step="100" required>
-                <br>
-                <label for="premium_${legCounter}">Premium (per option):</label>
-                <input type="number" id="premium_${legCounter}" value="1000" step="1" required>
-                <br>
+
                 <label for="quantity_${legCounter}">Quantity:</label>
                 <input type="number" id="quantity_${legCounter}" value="1" min="1" required>
                 <hr>
             </div>
         `;
         strategyLegsDiv.insertAdjacentHTML('beforeend', newLegHtml);
-        // Add event listener for the new remove button
-        document.querySelector(`#leg_${legCounter} .remove-leg`).addEventListener('click', (e) => {
-            e.target.closest('.option-leg').remove();
-            updateLegNumbers(); // Re-number legs after removal
-        });
+        const newLegDiv = document.getElementById(`leg_${legCounter}`);
+        setupLegEventListeners(newLegDiv, legCounter);
     }
+
+    // Function to set up event listeners for a new or existing leg
+    function setupLegEventListeners(legDiv, index) {
+        // Remove button listener
+        legDiv.querySelector('.remove-leg')?.addEventListener('click', (e) => {
+            e.target.closest('.option-leg').remove();
+            updateLegNumbers();
+        });
+
+        // Leg Type radio button listeners
+        legDiv.querySelectorAll(`input[name="legType_${index}"]`).forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const selectedType = e.target.value;
+                const optionInputs = legDiv.querySelector('.option-inputs');
+                const futureInputs = legDiv.querySelector('.future-inputs');
+
+                if (selectedType === 'option') {
+                    optionInputs.style.display = 'block';
+                    futureInputs.style.display = 'none';
+                    // Make option fields required
+                    legDiv.querySelector(`#strike-price_${index}`).required = true;
+                    legDiv.querySelector(`#premium_${index}`).required = true;
+                    legDiv.querySelector(`#entry-price_${index}`).required = false;
+                } else { // future
+                    optionInputs.style.display = 'none';
+                    futureInputs.style.display = 'block';
+                    // Make future fields required
+                    legDiv.querySelector(`#strike-price_${index}`).required = false;
+                    legDiv.querySelector(`#premium_${index}`).required = false;
+                    legDiv.querySelector(`#entry-price_${index}`).required = true;
+                }
+            });
+        });
+        // Ensure initial state is correct for the first leg on load
+        const initialLegType = legDiv.querySelector(`input[name="legType_${index}"]:checked`).value;
+        const optionInputs = legDiv.querySelector('.option-inputs');
+        const futureInputs = legDiv.querySelector('.future-inputs');
+        if (initialLegType === 'option') {
+            optionInputs.style.display = 'block';
+            futureInputs.style.display = 'none';
+            legDiv.querySelector(`#strike-price_${index}`).required = true;
+            legDiv.querySelector(`#premium_${index}`).required = true;
+            legDiv.querySelector(`#entry-price_${index}`).required = false;
+        } else {
+            optionInputs.style.display = 'none';
+            futureInputs.style.display = 'block';
+            legDiv.querySelector(`#strike-price_${index}`).required = false;
+            legDiv.querySelector(`#premium_${index}`).required = false;
+            legDiv.querySelector(`#entry-price_${index}`).required = true;
+        }
+    }
+
 
     // Function to update leg numbers after removal
     function updateLegNumbers() {
@@ -50,81 +115,133 @@ document.addEventListener('DOMContentLoaded', () => {
         legs.forEach((leg, index) => {
             leg.id = `leg_${index}`;
             leg.querySelector('h3').innerHTML = `Leg ${index + 1} <button class="remove-leg">Remove</button>`;
+
+            // Update names/ids for all inputs within the leg
+            leg.querySelector(`input[name^="legType"]`).name = `legType_${index}`;
+            leg.querySelector(`input[name^="legType"][value="future"]`).name = `legType_${index}`;
+
             leg.querySelector(`input[name^="optionType"]`).name = `optionType_${index}`;
             leg.querySelector(`input[name^="optionType"][value="put"]`).name = `optionType_${index}`;
-            leg.querySelector(`input[name^="action"]`).name = `action_${index}`;
-            leg.querySelector(`input[name^="action"][value="sell"]`).name = `action_${index}`;
             leg.querySelector(`input[id^="strike-price"]`).id = `strike-price_${index}`;
             leg.querySelector(`input[id^="premium"]`).id = `premium_${index}`;
+
+            leg.querySelector(`input[id^="entry-price"]`).id = `entry-price_${index}`;
+
+            leg.querySelector(`input[name^="action"]`).name = `action_${index}`;
+            leg.querySelector(`input[name^="action"][value="sell"]`).name = `action_${index}`;
+
             leg.querySelector(`input[id^="quantity"]`).id = `quantity_${index}`;
+
+            // Re-attach event listeners for the updated leg
+            setupLegEventListeners(leg, index);
         });
-        legCounter = legs.length -1; // Reset leg counter to correct value
+        legCounter = legs.length > 0 ? legs.length - 1 : -1; // Reset leg counter to correct value
     }
 
 
-    addLegButton.addEventListener('click', addOptionLeg);
+    addLegButton.addEventListener('click', addStrategyLeg);
 
     calculateButton.addEventListener('click', () => {
-        const underlyingPrice = parseFloat(underlyingPriceInput.value);
-        if (isNaN(underlyingPrice) || underlyingPrice <= 0) {
+        const underlyingPriceInitial = parseFloat(underlyingPriceInput.value); // Use this for setting chart range
+        if (isNaN(underlyingPriceInitial) || underlyingPriceInitial <= 0) {
             alert("Please enter a valid positive underlying asset price.");
             return;
         }
 
         const legs = [];
         strategyLegsDiv.querySelectorAll('.option-leg').forEach((legDiv, index) => {
-            const optionType = legDiv.querySelector(`input[name="optionType_${index}"]:checked`).value;
+            const legType = legDiv.querySelector(`input[name="legType_${index}"]:checked`).value;
             const action = legDiv.querySelector(`input[name="action_${index}"]:checked`).value;
-            const strikePrice = parseFloat(legDiv.querySelector(`#strike-price_${index}`).value);
-            const premium = parseFloat(legDiv.querySelector(`#premium_${index}`).value);
             const quantity = parseInt(legDiv.querySelector(`#quantity_${index}`).value);
 
-            if (isNaN(strikePrice) || isNaN(premium) || isNaN(quantity) || strikePrice <= 0 || premium < 0 || quantity <= 0) {
-                alert(`Please ensure all fields for Leg ${index + 1} are valid positive numbers.`);
+            if (isNaN(quantity) || quantity <= 0) {
+                alert(`Please ensure Quantity for Leg ${index + 1} is a valid positive number.`);
                 return;
             }
 
-            legs.push({ optionType, action, strikePrice, premium, quantity });
+            if (legType === 'option') {
+                const optionType = legDiv.querySelector(`input[name="optionType_${index}"]:checked`).value;
+                const strikePrice = parseFloat(legDiv.querySelector(`#strike-price_${index}`).value);
+                const premium = parseFloat(legDiv.querySelector(`#premium_${index}`).value);
+
+                if (isNaN(strikePrice) || isNaN(premium) || strikePrice <= 0 || premium < 0) {
+                    alert(`Please ensure Strike Price and Premium for Option Leg ${index + 1} are valid positive numbers.`);
+                    return;
+                }
+                legs.push({ type: 'option', optionType, action, strikePrice, premium, quantity });
+            } else { // future
+                const entryPrice = parseFloat(legDiv.querySelector(`#entry-price_${index}`).value);
+                if (isNaN(entryPrice) || entryPrice <= 0) {
+                    alert(`Please ensure Entry Price for Future Leg ${index + 1} is a valid positive number.`);
+                    return;
+                }
+                legs.push({ type: 'future', action, entryPrice, quantity });
+            }
         });
 
         if (legs.length === 0) {
-            alert("Please add at least one option leg.");
+            alert("Please add at least one strategy leg.");
             return;
         }
 
         // Determine price range for the chart
-        const allStrikes = legs.map(leg => leg.strikePrice);
-        const minStrike = Math.min(...allStrikes);
-        const maxStrike = Math.max(...allStrikes);
+        let minPriceForRange = underlyingPriceInitial * 0.8; // Default lower bound
+        let maxPriceForRange = underlyingPriceInitial * 1.2; // Default upper bound
 
-        const priceRangeMin = Math.max(0, minStrike * 0.8); // 20% below lowest strike
-        const priceRangeMax = maxStrike * 1.2; // 20% above highest strike
-        const priceIncrement = (priceRangeMax - priceRangeMin) / 100; // 100 data points
+        // Adjust range based on strikes if options are present
+        const allStrikes = legs.filter(leg => leg.type === 'option').map(leg => leg.strikePrice);
+        if (allStrikes.length > 0) {
+            const minStrike = Math.min(...allStrikes);
+            const maxStrike = Math.max(...allStrikes);
+            minPriceForRange = Math.min(minPriceForRange, minStrike * 0.9); // Go a bit lower than min strike
+            maxPriceForRange = Math.max(maxPriceForRange, maxStrike * 1.1); // Go a bit higher than max strike
+        }
+
+        const priceIncrement = (maxPriceForRange - minPriceForRange) / 200; // More data points for smoother curve
+        if (priceIncrement <= 0) { // Handle cases where range is too small or invalid
+            console.warn("Price range is too small or invalid, adjusting increment.");
+            maxPriceForRange = minPriceForRange + 1000; // Add a fixed range
+            if (minPriceForRange < 0) minPriceForRange = 0;
+            const fallbackIncrement = (maxPriceForRange - minPriceForRange) / 200;
+            if (fallbackIncrement <= 0) { // Still invalid
+                alert("Cannot determine a valid price range for calculation. Please adjust inputs.");
+                return;
+            }
+        }
+
 
         const prices = [];
         const payoffs = [];
 
         let currentMaxProfit = -Infinity;
         let currentMaxLoss = Infinity;
-        const breakevens = new Set(); // Use a Set to store unique breakeven points
+        const breakevens = new Set();
 
-        for (let p = priceRangeMin; p <= priceRangeMax; p += priceIncrement) {
+        for (let p = minPriceForRange; p <= maxPriceForRange; p += priceIncrement) {
             prices.push(p);
             let totalPayoff = 0;
 
             legs.forEach(leg => {
                 let legPayoff = 0;
-                if (leg.optionType === 'call') {
-                    if (leg.action === 'buy') {
-                        legPayoff = Math.max(0, p - leg.strikePrice) - leg.premium;
-                    } else { // sell
-                        legPayoff = Math.min(0, leg.strikePrice - p) + leg.premium;
+                if (leg.type === 'option') {
+                    if (leg.optionType === 'call') {
+                        if (leg.action === 'buy') {
+                            legPayoff = Math.max(0, p - leg.strikePrice) - leg.premium;
+                        } else { // sell
+                            legPayoff = Math.min(0, leg.strikePrice - p) + leg.premium;
+                        }
+                    } else { // put
+                        if (leg.action === 'buy') {
+                            legPayoff = Math.max(0, leg.strikePrice - p) - leg.premium;
+                        } else { // sell
+                            legPayoff = Math.min(0, p - leg.strikePrice) + leg.premium;
+                        }
                     }
-                } else { // put
+                } else { // future
                     if (leg.action === 'buy') {
-                        legPayoff = Math.max(0, leg.strikePrice - p) - leg.premium;
+                        legPayoff = (p - leg.entryPrice);
                     } else { // sell
-                        legPayoff = Math.min(0, p - leg.strikePrice) + leg.premium;
+                        legPayoff = (leg.entryPrice - p);
                     }
                 }
                 totalPayoff += legPayoff * leg.quantity;
@@ -156,16 +273,19 @@ document.addEventListener('DOMContentLoaded', () => {
         breakevenSpan.textContent = breakevens.size > 0 ? Array.from(breakevens).join(', ') : 'None';
 
         let riskReward = 'N/A';
-        if (currentMaxProfit > 0 && currentMaxLoss < 0) {
+        // Handle unlimited cases
+        if (currentMaxProfit === Infinity && currentMaxLoss === Infinity) {
+            riskReward = 'Unlimited P/L (Error)'; // Should not happen in real strategies
+        } else if (currentMaxProfit === Infinity) {
+            riskReward = 'Unlimited Reward';
+        } else if (currentMaxLoss === -Infinity) {
+            riskReward = 'Unlimited Risk';
+        } else if (currentMaxProfit > 0 && currentMaxLoss < 0) {
             riskReward = (currentMaxProfit / Math.abs(currentMaxLoss)).toFixed(2);
-        } else if (currentMaxLoss === 0 && currentMaxProfit > 0) {
-            riskReward = 'Unlimited';
+        } else if (currentMaxProfit > 0 && currentMaxLoss === 0) {
+            riskReward = 'Unlimited Reward (Limited Risk)';
         } else if (currentMaxProfit === 0 && currentMaxLoss < 0) {
-            riskReward = '0';
-        } else if (currentMaxProfit > 0 && currentMaxLoss === Infinity) { // Example: naked short call
-             riskReward = 'Unlimited Risk';
-        } else if (currentMaxProfit === Infinity && currentMaxLoss < 0) { // Example: naked long call
-             riskReward = 'Unlimited Reward';
+             riskReward = '0 (Limited Reward, Limited Risk)';
         }
 
 
