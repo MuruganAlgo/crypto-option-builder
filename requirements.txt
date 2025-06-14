@@ -1,0 +1,3 @@
+Flask
+delta-rest-client
+gunicorn # IMPORTANT: Gunicorn is a WSGI HTTP Server, essential for production deployment on Render.
