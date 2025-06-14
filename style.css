@@ -230,3 +230,24 @@ hr {
     background: #ccc;
     margin: 15px 0;
 }
+
+/* New: Price Slider Section Styles */
+.price-slider-section {
+    background-color: #f0f8ff;
+    border: 1px solid #cce0ff;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.price-slider-section h3 {
+    margin-top: 0;
+    color: #0056b3;
+}
+
+#price-slider {
+    width: 80%;
+    margin: 10px auto;
+    display: block;
+}
