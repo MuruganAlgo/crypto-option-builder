@@ -6,71 +6,74 @@
     <title>Crypto Option Strategy Builder</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
 </head>
 <body>
-    <div class="main-wrapper"> <div class="prebuilt-strategies-sidebar">
-            <h2>Pre-built Strategies</h2>
-            <ul id="strategy-list">
-                </ul>
+    <header>
+        <nav>
+            <button id="nav-home" class="nav-button active">Home</button>
+            <button id="nav-builder" class="nav-button">Strategy Builder</button>
+        </nav>
+    </header>
+
+    <div id="home-section" class="content-section active">
+        <div class="home-content">
+            <h2>Welcome to the Crypto Option Strategy Builder!</h2>
+            <p>This tool helps you visualize various cryptocurrency option and future strategies, understand their potential profit/loss, and analyze risk/reward profiles.</p>
+            <p><strong>Features:</strong></p>
+            <ul>
+                <li>Build custom strategies with multiple option and future legs.</li>
+                <li>Visualize payoff charts.</li>
+                <li>Calculate Max Profit, Max Loss, Break-even Point(s), and Risk/Reward.</li>
+                <li>Explore pre-built common option strategies.</li>
+                <li>(New!) See 1 Standard Deviation (1SD) and 2 Standard Deviation (2SD) price ranges on the chart.</li>
+            </ul>
+            <p>Click "Strategy Builder" to start creating and analyzing your strategies.</p>
         </div>
+    </div>
 
-        <div class="container"> <h1>Crypto Option Strategy Builder</h1>
-
-            <div class="results">
-                <h2>Strategy Payoff</h2>
-                <canvas id="payoffChart"></canvas>
-                <div id="metrics">
-                    <p>Max Profit: <span id="max-profit">-</span></p>
-                    <p>Max Loss: <span id="max-loss">-</span></p>
-                    <p>Break-even Point(s): <span id="breakeven-points">-</span></p>
-                    <p>Risk/Reward Ratio: <span id="risk-reward">-</span></p>
-                </div>
+    <div id="builder-section" class="content-section">
+        <div class="main-wrapper">
+            <div class="prebuilt-strategies-sidebar">
+                <h2>Pre-built Strategies</h2>
+                <ul id="strategy-list">
+                    </ul>
             </div>
 
-            <div id="strategy-legs">
-                <h2>Current Strategy Legs</h2>
-                <div class="option-leg" id="leg_0">
-                    <h3>Leg 1</h3>
+            <div class="container">
+                <h1>Crypto Option Strategy Builder</h1>
+
+                <div class="results">
+                    <h2>Strategy Payoff</h2>
+                    <canvas id="payoffChart"></canvas>
+                    <div id="metrics">
+                        <p>Max Profit: <span id="max-profit">-</span></p>
+                        <p>Max Loss: <span id="max-loss">-</span></p>
+                        <p>Break-even Point(s): <span id="breakeven-points">-</span></p>
+                        <p>Risk/Reward Ratio: <span id="risk-reward">-</span></p>
+                    </div>
+                </div>
+
+                <div id="strategy-legs">
+                    <h2>Current Strategy Legs</h2>
+                    </div>
+
+                <div class="inputs-bottom-section">
                     <label for="underlying-price">Underlying Asset Price:</label>
                     <input type="number" id="underlying-price" value="30000" step="100" required>
                     <br>
-
-                    <label>Leg Type:</label>
-                    <input type="radio" name="legType_0" value="option" checked> Option
-                    <input type="radio" name="legType_0" value="future"> Future
+                    <label for="dte">Days to Expiration (DTE):</label>
+                    <input type="number" id="dte" value="30" min="1" required>
                     <br>
-
-                    <div class="option-inputs">
-                        <label>Option Type:</label>
-                        <input type="radio" name="optionType_0" value="call" checked> Call
-                        <input type="radio" name="optionType_0" value="put"> Put
-                        <br>
-                        <label for="strike-price_0">Strike Price:</label>
-                        <input type="number" id="strike-price_0" value="30000" step="100">
-                        <br>
-                        <label for="premium_0">Premium (per option):</label>
-                        <input type="number" id="premium_0" value="1000" step="1">
-                    </div>
-
-                    <div class="future-inputs" style="display: none;">
-                        <label for="entry-price_0">Entry Price:</label>
-                        <input type="number" id="entry-price_0" value="30000" step="100">
-                    </div>
-
-                    <label>Action:</label>
-                    <input type="radio" name="action_0" value="buy" checked> Buy
-                    <input type="radio" name="action_0" value="sell"> Sell
-                    <br>
-
-                    <label for="quantity_0">Quantity:</label>
-                    <input type="number" id="quantity_0" value="1" min="1" required>
-                    <hr>
+                    <button id="add-leg">Add Another Leg</button>
+                    <button id="calculate-strategy">Calculate Strategy</button>
+                    <button id="clear-legs">Clear All Legs</button>
                 </div>
-            </div>
 
-            <button id="add-leg">Add Another Leg</button>
-            <button id="calculate-strategy">Calculate Strategy</button>
-            <button id="clear-legs">Clear All Legs</button> </div>
-    </div> <script src="script.js"></script>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
