@@ -1,3 +1,3 @@
-Flask
-delta-rest-client
-gunicorn # IMPORTANT: Gunicorn is a WSGI HTTP Server, essential for production deployment on Render.
+git add requirements.txt
+git commit -m "Add Flask-Cors to requirements.txt"
+git push origin main # Or 'master', depending on your branch
