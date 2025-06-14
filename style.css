@@ -1,13 +1,74 @@
 body {
     font-family: Arial, sans-serif;
-    margin: 20px;
+    margin: 0; /* Remove default body margin */
     background-color: #f4f4f4;
     color: #333;
 }
 
+.main-wrapper {
+    display: flex; /* Enable flexbox */
+    gap: 20px; /* Space between sidebar and main content */
+    padding: 20px;
+    max-width: 1200px; /* Max width for the entire layout */
+    margin: 0 auto; /* Center the wrapper */
+}
+
+.prebuilt-strategies-sidebar {
+    flex: 0 0 250px; /* Fixed width sidebar, not growing/shrinking */
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    height: fit-content; /* Make it fit its content height */
+    position: sticky; /* Keep it visible when scrolling */
+    top: 20px; /* Distance from top of viewport */
+}
+
+.prebuilt-strategies-sidebar h2 {
+    text-align: center;
+    margin-top: 0;
+    color: #0056b3;
+}
+
+.prebuilt-strategies-sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.prebuilt-strategies-sidebar li {
+    background-color: #e9f5ff;
+    border: 1px solid #cce0ff;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: flex; /* For title and mini-chart */
+    flex-direction: column; /* Stack title and chart */
+    align-items: center; /* Center content */
+    text-align: center;
+}
+
+.prebuilt-strategies-sidebar li:hover {
+    background-color: #d6ecff;
+    transform: translateY(-2px);
+}
+
+.prebuilt-strategies-sidebar li h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: #007bff;
+}
+
+.mini-chart-container {
+    width: 100%; /* Take full width of parent li */
+    max-width: 150px; /* Limit mini-chart width */
+    height: 70px; /* Fixed height for mini-chart */
+    margin-top: 5px;
+}
+
 .container {
-    max-width: 800px;
-    margin: 0 auto;
+    flex: 1; /* Allow main container to take remaining space */
     background-color: #fff;
     padding: 20px;
     border-radius: 8px;
@@ -51,6 +112,7 @@ button {
     cursor: pointer;
     font-size: 16px;
     margin-right: 10px;
+    margin-top: 5px; /* Add some top margin */
 }
 
 button:hover {
@@ -58,7 +120,7 @@ button:hover {
 }
 
 .results {
-    margin-top: 30px;
+    margin-top: 10px; /* Adjust margin as needed */
     text-align: center;
 }
 
