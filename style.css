@@ -79,7 +79,6 @@ nav .nav-button.active {
 .main-wrapper {
     display: flex;
     gap: 20px;
-    /* margin: 0 auto; Removed margin-top, container handles it */
 }
 
 .prebuilt-strategies-sidebar {
@@ -231,7 +230,7 @@ hr {
     margin: 15px 0;
 }
 
-/* New: Price Slider Section Styles */
+/* Price Slider Section Styles */
 .price-slider-section {
     background-color: #f0f8ff;
     border: 1px solid #cce0ff;
@@ -250,4 +249,62 @@ hr {
     width: 80%;
     margin: 10px auto;
     display: block;
+}
+
+/* New: Advanced Strategies Grid Styles */
+.advanced-strategies-grid-container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.advanced-strategies-grid-container .grid-title {
+    margin-top: 0;
+}
+
+.advanced-strategies-grid-container .disclaimer {
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #856404;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+#advanced-strategy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Responsive grid */
+    gap: 20px;
+    padding: 10px;
+}
+
+.advanced-strategy-card {
+    background-color: #e9f5ff;
+    border: 1px solid #cce0ff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-height: 200px; /* Ensure cards have consistent height */
+}
+
+.advanced-strategy-card:hover {
+    background-color: #d6ecff;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.advanced-strategy-card h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #007bff;
+    font-size: 1.2em;
 }
