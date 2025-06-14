@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Option Strategy Builder</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Crypto Option Strategy Builder</h1>
+
+        <div id="strategy-legs">
+            <h2>Strategy Legs</h2>
+            <div class="option-leg">
+                <label for="underlying-price">Underlying Asset Price:</label>
+                <input type="number" id="underlying-price" value="30000" step="100" required>
+                <br>
+                <label>Option Type:</label>
+                <input type="radio" name="optionType_0" value="call" checked> Call
+                <input type="radio" name="optionType_0" value="put"> Put
+                <br>
+                <label>Action:</label>
+                <input type="radio" name="action_0" value="buy" checked> Buy
+                <input type="radio" name="action_0" value="sell"> Sell
+                <br>
+                <label for="strike-price_0">Strike Price:</label>
+                <input type="number" id="strike-price_0" value="30000" step="100" required>
+                <br>
+                <label for="premium_0">Premium (per option):</label>
+                <input type="number" id="premium_0" value="1000" step="1" required>
+                <br>
+                <label for="quantity_0">Quantity:</label>
+                <input type="number" id="quantity_0" value="1" min="1" required>
+                <hr>
+            </div>
+        </div>
+
+        <button id="add-leg">Add Another Leg</button>
+        <button id="calculate-strategy">Calculate Strategy</button>
+
+        <div class="results">
+            <h2>Strategy Payoff</h2>
+            <canvas id="payoffChart"></canvas>
+            <div id="metrics">
+                <p>Max Profit: <span id="max-profit">-</span></p>
+                <p>Max Loss: <span id="max-loss">-</span></p>
+                <p>Break-even Point(s): <span id="breakeven-points">-</span></p>
+                <p>Risk/Reward Ratio: <span id="risk-reward">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
