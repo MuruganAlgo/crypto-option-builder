@@ -26,7 +26,8 @@
                 <li>Visualize payoff charts.</li>
                 <li>Calculate Max Profit, Max Loss, Break-even Point(s), and Risk/Reward.</li>
                 <li>Explore pre-built common option strategies.</li>
-                <li>(New!) See 1 Standard Deviation (1SD) and 2 Standard Deviation (2SD) price ranges on the chart.</li>
+                <li>See 1 Standard Deviation (1SD) and 2 Standard Deviation (2SD) price ranges on the chart.</li>
+                <li>(New!) Interactive price slider to explore P&L at any point on the chart.</li>
             </ul>
             <p>Click "Strategy Builder" to start creating and analyzing your strategies.</p>
         </div>
@@ -51,6 +52,12 @@
                         <p>Max Loss: <span id="max-loss">-</span></p>
                         <p>Break-even Point(s): <span id="breakeven-points">-</span></p>
                         <p>Risk/Reward Ratio: <span id="risk-reward">-</span></p>
+                    </div>
+
+                    <div class="price-slider-section">
+                        <h3>Explore Payoff at Price: <span id="slider-price-display">0</span></h3>
+                        <input type="range" id="price-slider" min="0" max="100" value="50" step="1">
+                        <p>P&L at selected price: <span id="slider-current-pl">-</span></p>
                     </div>
                 </div>
 
