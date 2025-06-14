@@ -98,22 +98,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getAbsoluteStrike(strikeRelative, underlyingPrice, offsetFactor) {
         const offset = underlyingPrice * offsetFactor;
+        // Round to nearest 100 for BTC example
         switch (strikeRelative) {
             case 'ATM': return Math.round(underlyingPrice / 100) * 100;
             case 'OTM_CALL': return Math.round((underlyingPrice + offset) / 100) * 100;
             case 'ITM_CALL': return Math.round((underlyingPrice - offset) / 100) * 100;
             case 'OTM_PUT': return Math.round((underlyingPrice - offset) / 100) * 100;
             case 'ITM_PUT': return Math.round((underlyingPrice + offset) / 100) * 100;
-            default: return underlyingPrice;
+            default: return underlyingPrice; // Fallback
         }
     }
 
     function getAbsolutePremium(premiumFactor, underlyingPrice) {
-        return Math.round(underlyingPrice * premiumFactor);
+        return Math.round(underlyingPrice * premiumFactor); // Simple calculation
     }
 
     function getAbsoluteEntryPrice(entryPriceRelative, underlyingPrice) {
-        return Math.round(underlyingPrice / 100) * 100;
+        return Math.round(underlyingPrice / 100) * 100; // For ATM future, just current price
     }
 
 
@@ -169,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newLegDiv = document.getElementById(legId);
         setupLegEventListeners(newLegDiv, legCounter);
 
-        // Manually trigger change to set initial display state
+        // Manually trigger change to set initial display state (option-inputs vs future-inputs)
         const selectedLegTypeRadio = newLegDiv.querySelector(`input[name="legType_${legCounter}"][value="${defaultType}"]`);
         if (selectedLegTypeRadio) {
             selectedLegTypeRadio.dispatchEvent(new Event('change'));
@@ -194,19 +195,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedType === 'option') {
                     optionInputs.style.display = 'block';
                     futureInputs.style.display = 'none';
+                    // Make option fields required
                     legDiv.querySelector(`#strike-price_${index}`).required = true;
                     legDiv.querySelector(`#premium_${index}`).required = true;
-                    // legDiv.querySelector(`#entry-price_${index}`).required = false; // Not needed as it's hidden
+                    legDiv.querySelector(`#entry-price_${index}`).required = false; // Set to false if hidden
                 } else { // future
                     optionInputs.style.display = 'none';
                     futureInputs.style.display = 'block';
-                    // legDiv.querySelector(`#strike-price_${index}`).required = false; // Not needed as it's hidden
-                    // legDiv.querySelector(`#premium_${index}`).required = false; // Not needed as it's hidden
+                    legDiv.querySelector(`#strike-price_${index}`).required = false; // Set to false if hidden
+                    legDiv.querySelector(`#premium_${index}`).required = false; // Set to false if hidden
                     legDiv.querySelector(`#entry-price_${index}`).required = true;
                 }
             });
         });
-        // Ensure initial state is correct for the first leg on load or when added
+
+        // Ensure initial state is correct immediately after setup (for existing or newly added legs)
         const initialLegTypeRadio = legDiv.querySelector(`input[name="legType_${index}"]:checked`);
         if (initialLegTypeRadio) {
             initialLegTypeRadio.dispatchEvent(new Event('change'));
@@ -221,10 +224,12 @@ document.addEventListener('DOMContentLoaded', () => {
             leg.id = `leg_${index}`;
             const h3 = leg.querySelector('h3');
             const removeBtn = leg.querySelector('.remove-leg');
-            h3.textContent = `Leg ${index + 1} `; // Clear existing text content
-            if (removeBtn) h3.appendChild(removeBtn); // Re-append button
+            // Safely update text and re-append remove button
+            h3.textContent = `Leg ${index + 1} `;
+            if (removeBtn) h3.appendChild(removeBtn);
 
-            // Update names/ids for all inputs within the leg
+            // Update names and IDs for all inputs within the leg
+            // Using attribute selectors for robustness
             leg.querySelectorAll('[name^="legType_"]').forEach(el => el.name = `legType_${index}`);
             leg.querySelectorAll('[name^="optionType_"]').forEach(el => el.name = `optionType_${index}`);
             leg.querySelectorAll('[name^="action_"]').forEach(el => el.name = `action_${index}`);
@@ -244,10 +249,10 @@ document.addEventListener('DOMContentLoaded', () => {
         legCounter = legs.length > 0 ? legs.length - 1 : -1;
     }
 
+    // Function to clear all current legs from the builder
     function clearAllLegs() {
-        strategyLegsDiv.innerHTML = '';
-        legCounter = -1; // Reset counter so first new leg is leg_0
-        addStrategyLeg(); // Add back one empty leg
+        strategyLegsDiv.innerHTML = ''; // Remove all leg divs
+        legCounter = -1; // Reset counter
         // Clear chart and metrics
         if (chart) {
             chart.destroy();
@@ -267,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let p = minPrice; p <= maxPrice; p += priceIncrement) {
             let totalPayoff = 0;
             legsConfig.forEach(leg => {
-                // For mini-charts, we use the relative/factor values directly
                 totalPayoff += calculateLegPayoff(leg, p, underlyingPriceForStrikes);
             });
             prices.push(p);
@@ -343,26 +347,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadPrebuiltStrategy(strategyName) {
-        clearAllLegs(); // Clear existing legs and add back one empty
+        clearAllLegs(); // Clear all existing legs and reset counter
         const underlyingPrice = parseFloat(underlyingPriceInput.value) || 30000;
 
         const strategyConfig = PREBUILT_STRATEGIES[strategyName];
-        if (!strategyConfig) {
-            console.error("Strategy not found:", strategyName);
+        if (!strategyConfig || strategyConfig.length === 0) {
+            console.warn("Strategy not found or empty:", strategyName, "Adding one empty leg.");
+            addStrategyLeg(); // Add an empty leg if the pre-built config is invalid
+            setTimeout(() => calculateButton.click(), 50); // Try to calculate even with empty leg
             return;
         }
 
-        // Remove the single empty leg added by clearAllLegs,
-        // as we are now adding specific legs from the pre-built strategy.
-        const initialLeg = document.getElementById('leg_0');
-        if (initialLeg) {
-            initialLeg.remove();
-            legCounter = -1; // Reset counter so the next leg added is 0
-        }
-
-
         strategyConfig.forEach(legConfig => {
-            const newLegData = { ...legConfig };
+            const newLegData = { ...legConfig }; // Clone the config
             // Translate relative strikes/premiums to absolute values for the input fields
             if (newLegData.type === 'option') {
                 newLegData.strike = getAbsoluteStrike(newLegData.strikeRelative, underlyingPrice, STRIKE_OFFSET_FACTOR);
@@ -377,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use a small delay to ensure DOM updates are complete before reading values
         setTimeout(() => {
             calculateButton.click();
-        }, 50);
+        }, 100); // Increased delay slightly
     }
 
     // --- Event Listeners for Main Builder Buttons ---
@@ -395,8 +392,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const legs = [];
-        let isValid = true; // Flag to track overall validity
-        strategyLegsDiv.querySelectorAll('.option-leg').forEach((legDiv, index) => {
+        let hasValidationErrors = false; // Flag to track overall validity
+        
+        // Use a local variable to get all leg divs
+        const allLegDivs = strategyLegsDiv.querySelectorAll('.option-leg');
+
+        if (allLegDivs.length === 0) {
+            alert("Please add at least one strategy leg.");
+            return;
+        }
+
+        allLegDivs.forEach((legDiv, index) => {
+            // Find inputs within the current legDiv using specific IDs/names
             const legTypeInput = legDiv.querySelector(`input[name="legType_${index}"]:checked`);
             const actionInput = legDiv.querySelector(`input[name="action_${index}"]:checked`);
             const quantityInput = legDiv.querySelector(`#quantity_${index}`);
@@ -406,9 +413,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const quantity = parseInt(quantityInput ? quantityInput.value : '0');
 
             if (!legType || !action || isNaN(quantity) || quantity <= 0) {
-                alert(`Please ensure Leg ${index + 1} has valid Leg Type, Action, and Quantity. All fields must be filled.`);
-                isValid = false;
-                return; // Stop processing this leg, but continue checking others for alerts
+                alert(`Error in Leg ${index + 1}: Please ensure Leg Type, Action, and Quantity are valid and filled.`);
+                hasValidationErrors = true;
+                return; // Skip this leg due to error
             }
 
             if (legType === 'option') {
@@ -421,8 +428,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const premium = parseFloat(premiumInput ? premiumInput.value : '0');
 
                 if (!optionType || isNaN(strikePrice) || isNaN(premium) || strikePrice <= 0 || premium < 0) {
-                    alert(`Please ensure Option Leg ${index + 1} has valid Option Type, Strike Price, and Premium. All fields must be filled.`);
-                    isValid = false;
+                    alert(`Error in Option Leg ${index + 1}: Please ensure Option Type, Strike Price, and Premium are valid and filled.`);
+                    hasValidationErrors = true;
                     return;
                 }
                 legs.push({ type: 'option', optionType, action, strike: strikePrice, premium: premium, quantity: quantity });
@@ -430,19 +437,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 const entryPriceInput = legDiv.querySelector(`#entry-price_${index}`);
                 const entryPrice = parseFloat(entryPriceInput ? entryPriceInput.value : '0');
                 if (isNaN(entryPrice) || entryPrice <= 0) {
-                    alert(`Please ensure Entry Price for Future Leg ${index + 1} is a valid positive number.`);
-                    isValid = false;
+                    alert(`Error in Future Leg ${index + 1}: Please ensure Entry Price is a valid positive number.`);
+                    hasValidationErrors = true;
                     return;
                 }
                 legs.push({ type: 'future', action: action, entryPrice: entryPrice, quantity: quantity });
             }
         });
 
-        if (!isValid || legs.length === 0) {
-            if (legs.length === 0 && isValid) { // Only show this if no other validation errors
-                alert("Please add at least one strategy leg.");
-            }
-            return; // Exit if any validation failed
+        if (hasValidationErrors) {
+            return; // Stop calculation if any errors were found
+        }
+        
+        if (legs.length === 0) { // This check should only be reached if no specific leg errors but somehow array is empty
+            alert("No valid strategy legs found to calculate. Please add/correct legs.");
+            return;
         }
 
         // Determine price range for the chart
@@ -524,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const y2 = payoffs[i + 1];
                 const interpolatedBreakeven = x1 - y1 * (x2 - x1) / (y2 - y1);
                 breakevens.add(interpolatedBreakeven.toFixed(2));
-            } else if (payoffs[i] === 0 && prices[i] !== 0) { // Check if exactly zero and not just starting at 0
+            } else if (payoffs[i] === 0 && prices[i] !== 0) {
                 breakevens.add(prices[i].toFixed(2));
             }
         }
@@ -628,7 +637,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial setup calls ---
     renderPrebuiltStrategies(); // Render the pre-built strategies sidebar on load
-    // The initial call to addStrategyLeg() already adds the first leg.
-    // If you want to start with a completely empty builder, then:
-    // clearAllLegs(); // Call this instead of addStrategyLeg() above, it will add one empty leg.
+    // The initial addStrategyLeg() already adds the first leg when the page loads.
 });
