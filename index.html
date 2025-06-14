@@ -13,6 +13,7 @@
         <nav>
             <button id="nav-home" class="nav-button active">Home</button>
             <button id="nav-builder" class="nav-button">Strategy Builder</button>
+            <button id="nav-advanced-strategies" class="nav-button">Advanced Strategies</button>
         </nav>
     </header>
 
@@ -25,18 +26,19 @@
                 <li>Build custom strategies with multiple option and future legs.</li>
                 <li>Visualize payoff charts.</li>
                 <li>Calculate Max Profit, Max Loss, Break-even Point(s), and Risk/Reward.</li>
-                <li>Explore pre-built common option strategies.</li>
+                <li>Explore pre-built common option strategies (directional).</li>
+                <li>(New!) Explore advanced non-directional strategies.</li>
                 <li>See 1 Standard Deviation (1SD) and 2 Standard Deviation (2SD) price ranges on the chart.</li>
-                <li>(New!) Interactive price slider to explore P&L at any point on the chart.</li>
+                <li>Interactive price slider to explore P&L at any point on the chart.</li>
             </ul>
-            <p>Click "Strategy Builder" to start creating and analyzing your strategies.</p>
+            <p>Click "Strategy Builder" to start creating and analyzing your strategies, or "Advanced Strategies" to explore complex non-directional setups.</p>
         </div>
     </div>
 
     <div id="builder-section" class="content-section">
         <div class="main-wrapper">
             <div class="prebuilt-strategies-sidebar">
-                <h2>Pre-built Strategies</h2>
+                <h2>Directional Strategies</h2>
                 <ul id="strategy-list">
                     </ul>
             </div>
@@ -78,6 +80,17 @@
                 </div>
 
             </div>
+        </div>
+    </div>
+
+    <div id="advanced-strategies-section" class="content-section">
+        <div class="advanced-strategies-grid-container">
+            <h2 class="grid-title">Non-Directional Strategies</h2>
+            <p class="disclaimer">
+                <strong>Disclaimer:</strong> For simplification, all legs in these strategies are simulated as expiring on the same date. In real trading, strategies like Calendars and Diagonals typically involve options with different expiration dates, which introduces time decay and volatility considerations not captured by this simple model.
+            </p>
+            <div id="advanced-strategy-grid">
+                </div>
         </div>
     </div>
 
